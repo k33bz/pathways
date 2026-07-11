@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "pathways",
+  "version": "${version}",
+  "name": "Pathways",
+  "description": "Built paths give a speed boost that follows civilization: full strength inside sanctuary zones, diminishing through the wilds. Roads between sanctuaries beat straight lines. Server-authoritative; vanilla clients can connect.",
+  "authors": [
+    "k33bz"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.k33bz.pathways.Pathways"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.1.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "sanctuary": "*"
+  }
+}
