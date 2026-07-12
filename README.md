@@ -25,6 +25,12 @@ shares no code or mechanics with it. MIT licensed.
     `maxBeyondBlocks`)
 - Without sanctuary (or before its config loads) paths give a flat `noSanctuaryLevel`
   (default Speed II) — the mod is fully standalone.
+- **Step-up** (`stepUpEnabled`, default on): while path-boosted you also get `stepUpBonus`
+  (default `+0.4` → total 1.0) on the step-height attribute — the path flows up full-block
+  rises like stairs, no jumping. Applied as a **transient additive modifier** with its own id
+  (`pathways:step_up`): it never touches the base value, never conflicts with other mods'
+  modifiers, isn't persisted, and expires on the same 2s linger window as the speed boost
+  (an expiry sweep also strips it immediately if an admin toggles it off live).
 - A stronger Speed from a beacon or potion is never downgraded (vanilla `addEffect` semantics).
 - Players only, survival/adventure/creative (spectators skipped), `dimensions`-gated
   (default overworld only — matching sanctuary's scaling dimension).
@@ -44,6 +50,8 @@ warning and falls back to `noSanctuaryLevel` instead of crashing.
 | `noSanctuaryLevel` | `2` | flat level when sanctuary is absent |
 | `ringBlocks` | `384` | width of each one-level falloff ring beyond the zone edge |
 | `minLevel` | `0` | falloff floor (0 = fades out entirely) |
+| `stepUpEnabled` | `true` | walk up full-block ledges while path-boosted (knob takes 0/1) |
+| `stepUpBonus` | `0.4` | added to vanilla 0.6 step height (0.4 → exactly one block) |
 | `maxBeyondBlocks` | `4096` | hard cutoff (only matters when `minLevel` > 0) |
 | `lingerTicks` | `40` | boost persistence after stepping off (2s) |
 | `checkEveryTicks` | `5` | player scan cadence |

@@ -46,6 +46,8 @@ public final class PathwaysCommands {
         knob("ringBlocks", () -> cfg().ringBlocks, v -> cfg().ringBlocks = v, 1, 100000);
         knob("minLevel", () -> cfg().minLevel, v -> cfg().minLevel = (int) Math.round(v), 0, 10);
         knob("maxBeyondBlocks", () -> cfg().maxBeyondBlocks, v -> cfg().maxBeyondBlocks = v, 0, 1000000);
+        knob("stepUpEnabled", () -> cfg().stepUpEnabled ? 1 : 0, v -> cfg().stepUpEnabled = v >= 0.5, 0, 1);
+        knob("stepUpBonus", () -> cfg().stepUpBonus, v -> cfg().stepUpBonus = v, 0, 10);
         knob("lingerTicks", () -> cfg().lingerTicks, v -> cfg().lingerTicks = (int) Math.round(v), 1, 1200);
         knob("checkEveryTicks", () -> cfg().checkEveryTicks, v -> cfg().checkEveryTicks = (int) Math.round(v), 1, 100);
     }
@@ -65,9 +67,13 @@ public final class PathwaysCommands {
                         : String.format(Locale.ROOT, "%.0f blocks into the wilds", beyond);
                 String boost = level <= 0 ? "none" : "Speed " + "I".repeat(Math.min(level, 3))
                         + (level > 3 ? " (lvl " + level + ")" : "");
+                String stepUp = !cfg.stepUpEnabled ? "off"
+                        : PathBoost.hasStepUp(player)
+                                ? String.format(Locale.ROOT, "+%.1f active", cfg.stepUpBonus)
+                                : "idle";
                 ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
-                        "[pathways] %s | %s | path boost here: %s%s",
-                        onPath ? "on a path" : "not on a path", zone, boost,
+                        "[pathways] %s | %s | path boost here: %s | step-up: %s%s",
+                        onPath ? "on a path" : "not on a path", zone, boost, stepUp,
                         cfg.enabled ? "" : " | DISABLED")), false);
                 return Command.SINGLE_SUCCESS;
             }));

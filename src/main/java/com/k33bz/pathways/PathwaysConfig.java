@@ -28,6 +28,12 @@ public class PathwaysConfig {
     public int minLevel = 0;             // floor the falloff here instead of fading to nothing
     public double maxBeyondBlocks = 4096.0; // hard cutoff (only matters when minLevel > 0)
 
+    // Step-up: walk up full-block ledges while path-boosted, like stairs. Applied as a
+    // TRANSIENT attribute modifier (never touches the base value, never stomps other mods),
+    // players only, same linger window as the speed boost.
+    public boolean stepUpEnabled = true;
+    public double stepUpBonus = 0.4; // vanilla step height 0.6 + 0.4 = 1.0 → one full block
+
     // Feel. Linger keeps the boost across grass gaps in natural-looking paths and sprint-jumps.
     public int lingerTicks = 40;    // 2s after stepping off a path block
     public int checkEveryTicks = 5; // player scan cadence
