@@ -215,17 +215,24 @@ def setup(workdir, jars, p, mc):
 
 
 def boot(workdir, results, label, init_pattern, timeout):
-    """Start a server and wait for pathways' init line and Done. Returns the Server, or None."""
+    """Start a server and wait for pathways' init line and Done. Returns (Server, ready).
+
+    The Server comes back even when the boot failed, so its log (the crash) is kept."""
     s = Server(workdir)
     s.start()
     init = s.wait_for(init_pattern, timeout)
-    results.append((f"{label}: pathways initialized", init is not None, init or ""))
+    results.append((f"{label}: pathways initialized", init is not None, init or _last_error(s)))
     done = s.wait_for(r"Done \(\d", timeout) if init else None
-    results.append((f"{label}: server reached Done", done is not None, done or ""))
-    if done is None:
-        s.stop()
-        return None
-    return s
+    results.append((f"{label}: server reached Done", done is not None, done or ("" if not init else _last_error(s))))
+    return s, done is not None
+
+
+def _last_error(s):
+    """The most telling line of a failed boot, for the summary table."""
+    for line in reversed(s.log):
+        if re.search(r"ERROR|Exception|Incompatible|requires|Caused by", line):
+            return line[-200:]
+    return s.log[-1][-200:] if s.log else "server produced no output"
 
 
 def at(s, x, z):
@@ -390,29 +397,30 @@ def main():
     for n in notes:
         print("  " + n, flush=True)
 
-    s = boot(a.workdir, results, "alone", r"\[pathways\] initialized \(sanctuary detected: false\)", a.boot_timeout)
-    if s:
-        try:
+    s, ready = boot(a.workdir, results, "alone", r"\[pathways\] initialized \(sanctuary detected: false\)",
+                    a.boot_timeout)
+    try:
+        if ready:
             run_alone(s, results, a.workdir)
-        finally:
-            s.stop()
-            logs += ["==== alone ===="] + s.log
-            fatal += s.fatal
+    finally:
+        s.stop()
+        logs += ["==== alone ===="] + s.log
+        fatal += s.fatal
 
     if a.sanctuary_jar:
         sdir = a.workdir + "-sanctuary"
         setup(sdir, [jar, a.sanctuary_jar], p, mc)
         TESTED["sanctuary"] = re.sub(r"^sanctuary-|\.jar$", "", os.path.basename(a.sanctuary_jar))
         notes.append(f"bridge tested against {os.path.basename(a.sanctuary_jar)}")
-        s = boot(sdir, results, "sanctuary", r"\[pathways\] initialized \(sanctuary detected: true\)",
-                 a.boot_timeout)
-        if s:
-            try:
+        s, ready = boot(sdir, results, "sanctuary", r"\[pathways\] initialized \(sanctuary detected: true\)",
+                        a.boot_timeout)
+        try:
+            if ready:
                 run_sanctuary(s, results, sdir)
-            finally:
-                s.stop()
-                logs += ["==== with sanctuary ===="] + s.log
-                fatal += s.fatal
+        finally:
+            s.stop()
+            logs += ["==== with sanctuary ===="] + s.log
+            fatal += s.fatal
     else:
         notes.append("sanctuary boot skipped (no --sanctuary-jar)")
 
