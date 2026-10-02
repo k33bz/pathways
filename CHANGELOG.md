@@ -4,7 +4,7 @@
 
 Same release on every line: `main` (26.3), `26.2` and `26.1` (26.1.2).
 
-- **Minecraft 26.3.** `main` now targets 26.3. 26.2 moved to its own `26.2` branch, and `26.1` stays as it was. Version pins follow sanctuary's branch of the same Minecraft version (26.3: loader 0.19.5, fabric-api 0.161.0+26.3; 26.2: loader 0.19.5, fabric-api 0.161.0+26.2; 26.1.2: loader 0.19.3, fabric-api 0.155.3+26.1.2).
+- **Minecraft 26.3.** `main` now targets 26.3. 26.2 moved to its own `26.2` branch, and `26.1` stays as it was. Version pins follow sanctuary's branch of the same Minecraft version (26.3: loader 0.19.5, fabric-api 0.161.0+26.3; 26.2: loader 0.19.5, fabric-api 0.161.0+26.2; 26.1.2: loader 0.19.5, the loader gmc101 runs, fabric-api 0.155.3+26.1.2).
 - **Each jar only loads on its own Minecraft line.** `fabric.mod.json` now takes its `minecraft` range from `minecraft_version` (`~26.3`, `~26.2`, `~26.1.2`), so a port is a `gradle.properties` change only.
 - **A broken config can no longer reset or crash the server.** Two problems in `config/pathways.json` handling:
   - If the file failed to parse, pathways silently wrote defaults over it, wiping every knob an admin had set. Now it logs an error, runs on defaults in memory and leaves the file untouched until it is fixed and `/pathways reload` is run.
