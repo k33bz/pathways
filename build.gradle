@@ -36,9 +36,12 @@ test {
 
 processResources {
     inputs.property "version", project.version
+    inputs.property "minecraft_version", project.minecraft_version
     filteringCharset "UTF-8"
+    // fabric.mod.json pins "minecraft" to ~minecraft_version, so a line's jar only loads on its
+    // own Minecraft version and porting a line is a gradle.properties change only
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand "version": project.version, "minecraft_version": project.minecraft_version
     }
 }
 
