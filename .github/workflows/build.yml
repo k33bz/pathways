@@ -13,8 +13,8 @@ jobs:
     permissions:
       contents: write   # only used to push README badge data to the `badges` branch (release lines)
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 25
@@ -51,7 +51,7 @@ jobs:
                 | grep -E '^minecraft_version=' | cut -d= -f2 || true)
             if [ "$v" = "$MC_VERSION" ]; then echo "SANCTUARY_REF=$b" >> "$GITHUB_ENV"; break; fi
           done
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.SANCTUARY_REF != ''
         with:
           repository: k33bz/sanctuary
@@ -72,7 +72,7 @@ jobs:
         run: python3 scripts/server_test.py ${SANCTUARY_JAR:+--sanctuary-jar "$SANCTUARY_JAR"}
       - name: Upload server-test log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: server-test-log-${{ env.MC_VERSION }}
           path: build/server-test/console.log
@@ -89,7 +89,7 @@ jobs:
           bash scripts/commit_badges.sh /tmp/badges "$GITHUB_REF_NAME @ ${GITHUB_SHA::7}" || true
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports-${{ env.MC_VERSION }}
           path: build/reports/tests/test
@@ -97,7 +97,7 @@ jobs:
       - name: Artifact slug
         run: echo "ARTIFACT_SLUG=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_ENV"
       - name: Upload jar
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pathways-${{ env.MC_VERSION }}-${{ env.ARTIFACT_SLUG }}
           path: build/libs/*.jar
