@@ -1,0 +1,103 @@
+name: build
+
+# One pipeline per supported Minecraft line: main = newest (26.3), 26.x branches = backports.
+on:
+  push:
+    branches: [main, '26.*']
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # only used to push README badge data to the `badges` branch (release lines)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: gradle
+      - name: Minecraft version
+        run: |
+          MC=$(grep -E '^minecraft_version=' gradle.properties | cut -d= -f2)
+          echo "MC_VERSION=$MC" >> "$GITHUB_ENV"
+          echo "### pathways on Minecraft $MC (\`$GITHUB_REF_NAME\`)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build + tests
+        run: ./gradlew build
+      - name: Test summary
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import glob, re, sys
+          t = f = e = s = 0
+          for p in glob.glob('build/test-results/test/*.xml'):
+              head = open(p, encoding='utf-8').read(4096)
+              m = re.search(r'tests="(\d+)" skipped="(\d+)" failures="(\d+)" errors="(\d+)"', head)
+              t += int(m[1]); s += int(m[2]); f += int(m[3]); e += int(m[4])
+          print(f"Unit tests: **{t}** run, {f} failed, {e} errors, {s} skipped")
+          if t == 0:
+              print("::error::no unit tests ran", file=sys.stderr)
+              sys.exit(1)
+          PY
+      # The sanctuary branch for this Minecraft version (main/26.2/26.1), built from source so the
+      # bridge is tested against the sanctuary that ships today. Optional: if it fails to build,
+      # the server test still runs pathways alone and the badge reads "not tested".
+      - name: Find the sanctuary branch for this Minecraft version
+        run: |
+          for b in main 26.2 26.1; do
+            v=$(curl -sf "https://raw.githubusercontent.com/k33bz/sanctuary/$b/gradle.properties" \
+                | grep -E '^minecraft_version=' | cut -d= -f2 || true)
+            if [ "$v" = "$MC_VERSION" ]; then echo "SANCTUARY_REF=$b" >> "$GITHUB_ENV"; break; fi
+          done
+      - uses: actions/checkout@v7
+        if: env.SANCTUARY_REF != ''
+        with:
+          repository: k33bz/sanctuary
+          ref: ${{ env.SANCTUARY_REF }}
+          path: sanctuary-src
+      - name: Build sanctuary (for the bridge test)
+        if: env.SANCTUARY_REF != ''
+        continue-on-error: true
+        working-directory: sanctuary-src
+        run: |
+          ./gradlew build -x test
+          jar=$(ls build/libs/*.jar | grep -vE -- '-(sources|dev)\.jar$' | head -1)
+          echo "SANCTUARY_JAR=$PWD/$jar" >> "$GITHUB_ENV"
+          echo "Bridge tested against \`$(basename "$jar")\` (sanctuary \`$SANCTUARY_REF\`)" >> "$GITHUB_STEP_SUMMARY"
+      # Boot real Fabric servers (newest release of this line, newest fabric-api): pathways alone,
+      # then with sanctuary. Writes build/server-test/versions.json for the badges below.
+      - name: Server test (real Fabric server)
+        run: python3 scripts/server_test.py ${SANCTUARY_JAR:+--sanctuary-jar "$SANCTUARY_JAR"}
+      - name: Upload server-test log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: server-test-log-${{ env.MC_VERSION }}
+          path: build/server-test/console.log
+          if-no-files-found: ignore
+      # README badges per release line (scripts/publish_badges.py -> orphan `badges` branch).
+      # Pushes to a release line only: a PR or feature branch must never overwrite what they report.
+      - name: Publish version badges
+        if: always() && github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, '26.')) && hashFiles('build/server-test/versions.json') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 scripts/publish_badges.py --branch "$GITHUB_REF_NAME" --out /tmp/badges
+          bash scripts/commit_badges.sh /tmp/badges "$GITHUB_REF_NAME @ ${GITHUB_SHA::7}" || true
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports-${{ env.MC_VERSION }}
+          path: build/reports/tests/test
+          if-no-files-found: ignore
+      - name: Artifact slug
+        run: echo "ARTIFACT_SLUG=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_ENV"
+      - name: Upload jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: pathways-${{ env.MC_VERSION }}-${{ env.ARTIFACT_SLUG }}
+          path: build/libs/*.jar
