@@ -24,3 +24,6 @@ run[0-9]*.log
 # OS
 .DS_Store
 logs/
+
+# Python
+__pycache__/

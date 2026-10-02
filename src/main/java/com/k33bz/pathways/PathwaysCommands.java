@@ -41,15 +41,27 @@ public final class PathwaysCommands {
     }
 
     static {
-        knob("insideLevel", () -> cfg().insideLevel, v -> cfg().insideLevel = (int) Math.round(v), 0, 10);
-        knob("noSanctuaryLevel", () -> cfg().noSanctuaryLevel, v -> cfg().noSanctuaryLevel = (int) Math.round(v), 0, 10);
-        knob("ringBlocks", () -> cfg().ringBlocks, v -> cfg().ringBlocks = v, 1, 100000);
-        knob("minLevel", () -> cfg().minLevel, v -> cfg().minLevel = (int) Math.round(v), 0, 10);
-        knob("maxBeyondBlocks", () -> cfg().maxBeyondBlocks, v -> cfg().maxBeyondBlocks = v, 0, 1000000);
+        // Ranges come from PathwaysConfig so a hand-edited file is held to the same limits
+        knob("insideLevel", () -> cfg().insideLevel, v -> cfg().insideLevel = (int) Math.round(v), 0, PathwaysConfig.MAX_LEVEL);
+        knob("noSanctuaryLevel", () -> cfg().noSanctuaryLevel, v -> cfg().noSanctuaryLevel = (int) Math.round(v), 0, PathwaysConfig.MAX_LEVEL);
+        knob("ringBlocks", () -> cfg().ringBlocks, v -> cfg().ringBlocks = v, PathwaysConfig.RING_BLOCKS_MIN, PathwaysConfig.RING_BLOCKS_MAX);
+        knob("minLevel", () -> cfg().minLevel, v -> cfg().minLevel = (int) Math.round(v), 0, PathwaysConfig.MAX_LEVEL);
+        knob("maxBeyondBlocks", () -> cfg().maxBeyondBlocks, v -> cfg().maxBeyondBlocks = v, 0, PathwaysConfig.MAX_BEYOND_MAX);
         knob("stepUpEnabled", () -> cfg().stepUpEnabled ? 1 : 0, v -> cfg().stepUpEnabled = v >= 0.5, 0, 1);
-        knob("stepUpBonus", () -> cfg().stepUpBonus, v -> cfg().stepUpBonus = v, 0, 10);
-        knob("lingerTicks", () -> cfg().lingerTicks, v -> cfg().lingerTicks = (int) Math.round(v), 1, 1200);
-        knob("checkEveryTicks", () -> cfg().checkEveryTicks, v -> cfg().checkEveryTicks = (int) Math.round(v), 1, 100);
+        knob("stepUpBonus", () -> cfg().stepUpBonus, v -> cfg().stepUpBonus = v, 0, PathwaysConfig.STEP_UP_MAX);
+        knob("lingerTicks", () -> cfg().lingerTicks, v -> cfg().lingerTicks = (int) Math.round(v), PathwaysConfig.LINGER_MIN, PathwaysConfig.LINGER_MAX);
+        knob("checkEveryTicks", () -> cfg().checkEveryTicks, v -> cfg().checkEveryTicks = (int) Math.round(v), PathwaysConfig.CHECK_EVERY_MIN, PathwaysConfig.CHECK_EVERY_MAX);
+    }
+
+    /** "inside a sanctuary zone" / "N blocks into the wilds" / no-sanctuary fallback. */
+    private static String zoneText(double beyond) {
+        return Double.isNaN(beyond) ? "no sanctuary data (fallback level applies)"
+                : beyond <= 0 ? "inside a sanctuary zone"
+                : String.format(Locale.ROOT, "%.0f blocks into the wilds", beyond);
+    }
+
+    private static String boostText(int level) {
+        return level <= 0 ? "none" : "Speed " + "I".repeat(Math.min(level, 3)) + (level > 3 ? " (lvl " + level + ")" : "");
     }
 
     public static void register() {
@@ -62,11 +74,8 @@ public final class PathwaysCommands {
                 boolean onPath = player.level().getBlockState(player.getOnPos()).is(PathBoost.PATHS);
                 double beyond = SanctuaryBridge.blocksBeyondSafe(player.getX(), player.getZ());
                 int level = PathBoost.levelAt(cfg, player.getX(), player.getZ());
-                String zone = Double.isNaN(beyond) ? "no sanctuary data (fallback level applies)"
-                        : beyond <= 0 ? "inside a sanctuary zone"
-                        : String.format(Locale.ROOT, "%.0f blocks into the wilds", beyond);
-                String boost = level <= 0 ? "none" : "Speed " + "I".repeat(Math.min(level, 3))
-                        + (level > 3 ? " (lvl " + level + ")" : "");
+                String zone = zoneText(beyond);
+                String boost = boostText(level);
                 String stepUp = !cfg.stepUpEnabled ? "off"
                         : PathBoost.hasStepUp(player)
                                 ? String.format(Locale.ROOT, "+%.1f active", cfg.stepUpBonus)
@@ -77,6 +86,25 @@ public final class PathwaysCommands {
                         cfg.enabled ? "" : " | DISABLED")), false);
                 return Command.SINGLE_SUCCESS;
             }));
+
+            // What a path would grant at any (x, z), from anywhere, including the console. For
+            // admins planning roads, and for CI, which has no player to stand on a path.
+            // Read-only, but it reveals where sanctuary zones end, so it is op-only.
+            root.then(Commands.literal("at").requires(Commands.<CommandSourceStack>hasPermission(Commands.LEVEL_GAMEMASTERS))
+                    .then(Commands.argument("x", DoubleArgumentType.doubleArg())
+                            .then(Commands.argument("z", DoubleArgumentType.doubleArg()).executes(ctx -> {
+                                double x = DoubleArgumentType.getDouble(ctx, "x");
+                                double z = DoubleArgumentType.getDouble(ctx, "z");
+                                PathwaysConfig cfg = cfg();
+                                double beyond = SanctuaryBridge.blocksBeyondSafe(x, z);
+                                int level = PathBoost.levelAt(cfg, x, z);
+                                ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                                        "[pathways] at %.0f %.0f: %s | path boost: %s | level=%d beyond=%s%s",
+                                        x, z, zoneText(beyond), boostText(level), level,
+                                        Double.isNaN(beyond) ? "none" : String.format(Locale.ROOT, "%.1f", beyond),
+                                        cfg.enabled ? "" : " | DISABLED")), false);
+                                return Command.SINGLE_SUCCESS;
+                            }))));
 
             root.then(Commands.literal("toggle").requires(Commands.<CommandSourceStack>hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(ctx -> {
                 cfg().enabled = !cfg().enabled;
